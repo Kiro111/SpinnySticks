@@ -14,7 +14,6 @@ public class PlayerManager : MonoBehaviour
     private bool isJoystickActive = false;
    
     public float moveSpeed = 5f; // Скорость перемещения стикмена
-    private Vector2 lastDirection = Vector2.zero;
     public GameObject bulletPrefab; // Префаб для шарика
     public Transform firePoint; // Точка, из которой будет выпущен шарик
     public float bulletForce = 20f; // Сила, с которой шарик будет выпущен
@@ -94,9 +93,6 @@ public class PlayerManager : MonoBehaviour
                 isMoving = true;
                 FixedUpdate();
 
-
-
-
             }
             // Конец свайпа
             else if (touch.phase == TouchPhase.Ended)
@@ -116,34 +112,26 @@ public class PlayerManager : MonoBehaviour
 
 
         }
-        else
-        {
-            isMoving = false;
-            playerAnimator.SetBool("Walking", true);
-        }
+        //else
+        //{
+        //    isMoving = false;
+        //    playerAnimator.SetBool("Walking", true);
+        //}
 
-        // Устанавливаем параметр "Walking" в Animator в зависимости от состояния движения
-        if (isMoving && isShooting)
-            {
-                playerAnimator.SetBool("Shoot", true);
+       if (isMoving)
+       {
+         playerAnimator.SetBool("Walking", true);
 
-
-            }
-            if (isMoving)
-            {
-                playerAnimator.SetBool("Walking", true);
-
-
-            }
-            else
-            {
-                playerAnimator.SetBool("Walking", false);
-            }
+       }
+       else
+       {
+          playerAnimator.SetBool("Walking", false);
+       }
 
         // Плавный поворот стикмена в сторону движения
   
         // Проверяем, есть ли враги в радиусе обнаружения и стреляем на них
-        Collider[] hitColliders = new Collider[1]; // Максимальное количество коллайдеров для обнаружения
+        Collider[] hitColliders = new Collider[10]; // Максимальное количество коллайдеров для обнаружения
             int numColliders = Physics.OverlapSphereNonAlloc(transform.position, detectionRadius, hitColliders);
             Transform closestEnemy = null;
             float closestDistanceSqr = Mathf.Infinity;
@@ -176,7 +164,11 @@ public class PlayerManager : MonoBehaviour
 
             // Прицеливаемся на врага
             isAiming = true;
-            playerAnimator.SetBool("Shoot", true);
+
+           
+            
+                playerAnimator.SetBool("Shooting", true);
+            
 
             // Проверяем, прошла ли задержка между выстрелами
             if (Time.time >= lastShootTime + shootCooldown)
@@ -191,6 +183,7 @@ public class PlayerManager : MonoBehaviour
                 // Если врагов в радиусе обнаружения нет, сбрасываем прицеливание и возможность стрельбы
                 isAiming = false;
                 canShoot = false;
+                playerAnimator.SetBool("Shooting", false);
                 playerAnimator.SetBool("Shoot", false);
         }
 
@@ -355,13 +348,7 @@ public class PlayerManager : MonoBehaviour
     {
         isMoving = false;
     }
-
-    // Вызывается, когда игрок начинает движение (например, когда кнопка движения нажата)
-    public void StartMoving(Vector2 direction)
-    {
-        lastDirection = direction.normalized;
-        isMoving = true;
-    }
+ 
 
     void ShootBullet()
     {
@@ -386,13 +373,16 @@ public class PlayerManager : MonoBehaviour
             canShoot = false;
 
             // Активируем параметр "Shoot" в аниматоре, чтобы начать анимацию стрельбы
-            playerAnimator.SetBool("Shoot", true);
+            playerAnimator.SetBool("Shooting", true);
 
         }
+       
         else
         {
             // Если у игрока нет патронов, прекращаем стрельбу
             isShooting = false;
+            playerAnimator.SetBool("Shooting", false);
+            playerAnimator.SetBool("Shoot", false);
         }
     }
 }
