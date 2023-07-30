@@ -1,9 +1,12 @@
 using UnityEngine;
 using System.Collections;
+using Cinemachine;
+using System;
 
 public class PlayerManager : MonoBehaviour
 {
     public float moveSpeed = 5f; // Скорость перемещения стикмена
+    private Vector2 lastDirection = Vector2.zero;
     public GameObject bulletPrefab; // Префаб для шарика
     public Transform firePoint; // Точка, из которой будет выпущен шарик
     public float bulletForce = 20f; // Сила, с которой шарик будет выпущен
@@ -16,7 +19,7 @@ public class PlayerManager : MonoBehaviour
     public LineRenderer aimLineRenderer; // Ссылка на компонент LineRenderer для отображения луча прицеливания
 
     private Vector2 inputPosition; // Позиция ввода (касание или позиция мыши)
-    private bool isMoving = false; // Флаг, указывающий на то, что стикмен движется
+    public bool isMoving = false; // Флаг, указывающий на то, что стикмен движется
     private bool isAiming = false; // Флаг, указывающий на то, что игрок прицеливается
     private bool canShoot = false; // Флаг, указывающий на возможность стрельбы
     private float lastShootTime = 0f; // Время последнего выстрела
@@ -27,10 +30,11 @@ public class PlayerManager : MonoBehaviour
     private bool isShooting = false; // Флаг, указывающий, стреляет ли игрок в данный момент
 
     private bool canAimAndShoot = false;
-
+    public CinemachineFreeLook virtualCamera;
 
     void Start()
     {
+        virtualCamera = FindObjectOfType<CinemachineFreeLook>();
         // Получаем компонент Animator из текущего объекта
         playerAnimator = GetComponent<Animator>();
 
@@ -43,6 +47,14 @@ public class PlayerManager : MonoBehaviour
 
     void Update()
     {
+
+        if (virtualCamera != null)
+        {
+            // Устанавливаем позицию и ориентацию Cinemachine в соответствии с персонажем.
+            virtualCamera.Follow = transform;
+            virtualCamera.LookAt = transform;
+        }
+
         if (isAiming && aimLineRenderer != null)
         {
             RaycastHit hit;
@@ -57,6 +69,7 @@ public class PlayerManager : MonoBehaviour
                 canShoot = false;
             }
         }
+
         // Обработка свайпов на экране или перемещения мыши
         if (Input.touchCount > 0)
         {
@@ -65,13 +78,20 @@ public class PlayerManager : MonoBehaviour
             // Начало свайпа
             if (touch.phase == TouchPhase.Began)
             {
-                inputPosition = touch.position;
-                isMoving = true;
+                inputPosition = touch.position; 
+    
+                    isMoving = true;
+                FixedUpdate();
+               
+
+
+
             }
             // Конец свайпа
             else if (touch.phase == TouchPhase.Ended)
             {
                 isMoving = false;
+               
             }
         }
         // Обработка перемещения мыши
@@ -79,27 +99,42 @@ public class PlayerManager : MonoBehaviour
         {
             inputPosition = Input.mousePosition;
             isMoving = true;
+            FixedUpdate();
+           
+
+
+
         }
         else
         {
             isMoving = false;
+           
         }
 
         // Устанавливаем параметр "Walking" в Animator в зависимости от состояния движения
         if (isMoving && isShooting)
         {
             playerAnimator.SetBool("Shoot", true);
+            
+
+        }
+        if (isMoving)
+        {
+            playerAnimator.SetBool("Walking", true);
+            
+
         }
         else
-        { 
-            playerAnimator.SetBool("Walking", isMoving);
+        {
+            playerAnimator.SetBool("Walking", false);
         }
+
         // Плавный поворот стикмена в сторону движения
         if (isMoving)
         {
             Vector3 movementDirection = new Vector3(inputPosition.x - Screen.width / 2f, 0f, inputPosition.y - Screen.height / 2f).normalized;
             Quaternion targetRotation = Quaternion.LookRotation(movementDirection);
-            transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, Time.deltaTime * 10f);
+            transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, Time.deltaTime * 20f);
         }
 
         // Проверяем, есть ли враги в радиусе обнаружения и стреляем на них
@@ -130,21 +165,18 @@ public class PlayerManager : MonoBehaviour
             Vector3 directionToEnemy = closestEnemy.position - transform.position;
             directionToEnemy.y = 0f;
             Quaternion targetRotation = Quaternion.LookRotation(directionToEnemy);
-            transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, Time.deltaTime * 10f);
+            transform.rotation = Quaternion.Lerp(transform.rotation, targetRotation, Time.deltaTime * 40f);
 
             // Прицеливаемся на врага
             isAiming = true;
+
+         
 
             // Проверяем, прошла ли задержка между выстрелами
             if (Time.time >= lastShootTime + shootCooldown)
             {
                 // Разрешаем стрельбу, только если успешно прицелились и у игрока есть патроны
                 canShoot = true;
-            }
-            else
-            {
-                // Запрещаем стрельбу, если время задержки между выстрелами еще не прошло
-                canShoot = false;
             }
         }
         else
@@ -179,8 +211,77 @@ public class PlayerManager : MonoBehaviour
                 aimLineRenderer.enabled = false;
             }
         }
+    }
 
- 
+    private void StartMoving(int v)
+    {
+        throw new NotImplementedException();
+    }
+
+
+
+   
+
+    void FixedUpdate()
+    {
+        if (Input.touchCount > 0)
+        {
+            Vector2 currentInputPosition = Input.GetTouch(0).position;
+            // Вычисление направления движения
+            Vector2 direction = currentInputPosition - inputPosition;
+
+            // Нормализация направления движения
+            direction.Normalize();
+
+            // Применение силы для перемещения стикмена
+            Vector3 movement = new Vector3(direction.x, 0f, direction.y) * moveSpeed * Time.fixedDeltaTime;
+            transform.Translate(movement, Space.World);
+
+            inputPosition = currentInputPosition;
+            lastDirection = direction;
+        }
+        //else
+        //{
+        //    // Если нет активных касаний, двигаем стикмена в последнем запомненном направлении
+        //    Vector3 movement = new Vector3(lastDirection.x, 0f, lastDirection.y) * moveSpeed * Time.fixedDeltaTime;
+        //    transform.Translate(movement, Space.World);
+           
+        //}
+       
+    }
+    //Добавив инициализацию inputPosition, код должен правильно сохранять позицию касания и использовать ее для вычисления направления движения.Теперь ваш стикмен должен двигаться в последнем запомненном направлении, когда на экране нет активных касаний.
+    
+
+
+
+
+
+
+    // Отрисовываем радиус обнаружения для наглядности в редакторе Unity
+        void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, detectionRadius);
+    }
+
+    // Метод для увеличения количества патронов (например, при подборе патронов в игре)
+    public void IncreaseBulletCount(int amount)
+    {
+        bulletCount += amount;
+        // Можно добавить здесь дополнительные проверки, чтобы количество патронов не превышало максимальное значение и т. д.
+    }
+
+    // Вызывается, когда игрок явно хочет остановить движение (например, когда кнопка остановки нажата)
+    public void StopMoving()
+    {
+        isMoving = false;
+    }
+
+    // Вызывается, когда игрок начинает движение (например, когда кнопка движения нажата)
+    public void StartMoving(Vector2 direction)
+    {
+        lastDirection = direction.normalized;
+        isMoving = true;
     }
 
     void ShootBullet()
@@ -215,57 +316,4 @@ public class PlayerManager : MonoBehaviour
             isShooting = false;
         }
     }
-
-    void FixedUpdate()
-    {
-        if (isMoving)
-        {
-            // Получение текущей позиции свайпа или курсора мыши
-            Vector2 currentInputPosition = Input.touchCount > 0 ? Input.GetTouch(0).position : (Vector2)Input.mousePosition;
-
-            // Вычисление направления движения
-            Vector2 direction = currentInputPosition - inputPosition;
-
-            // Нормализация направления движения
-            direction.Normalize();
-
-            // Применение силы для перемещения стикмена
-            Vector3 movement = new Vector3(direction.x, 0f, direction.y) * moveSpeed * Time.fixedDeltaTime;
-            transform.Translate(movement, Space.World);
-
-            inputPosition = currentInputPosition;
-        }
-    }
-
-    // Отрисовываем радиус обнаружения для наглядности в редакторе Unity
-    void OnDrawGizmosSelected()
-    {
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(transform.position, detectionRadius);
-    }
-
-    // Отрисовываем радиус обнаружения для наглядности в редакторе Unity
-
-
-    private void OnTriggerEnter(Collider other)
-    {
-        // Получаем компонент EnemyManager у столкнувшегося объекта (если он есть)
-        EnemyManager enemyManager = other.GetComponent<EnemyManager>();
-
-        // Если объект имеет компонент EnemyManager и игрок стрелял по врагу
-        if (enemyManager != null && !enemyManager.isHit)
-        {
-            // Наносим урон врагу
-            enemyManager.TakeDamage();
-            enemyManager.isHit = true; // Помечаем врага, чтобы игрок не наносил ему повторный урон
-        }
-    }
-
-    // Метод для увеличения количества патронов (например, при подборе патронов в игре)
-    public void IncreaseBulletCount(int amount)
-    {
-        bulletCount += amount;
-        // Можно добавить здесь дополнительные проверки, чтобы количество патронов не превышало максимальное значение и т. д.
-    }
-
 }
